@@ -43,6 +43,140 @@ async def on_ready():
             print(f"Нет прав на просмотр приглашений на сервере {guild.name}.")
 
 
+@KaradevFaceKid.command(name="setlog-old")
+@commands.has_permissions(administrator=True)
+async def set_log_channel(ctx, *args):
+    await ctx.message.delete()
+    guild_id = ctx.guild.id
+    if not args:
+        embed = discord.Embed(
+            title="❓ Инструкция по использованию команды !setlog",
+            description=(
+                "Используйте команду следующим образом:\n"
+                "`!setlog-old #канал all` — настроить канал для всех функций.\n"
+                "`!setlog-old #канал invite_events` — настроить канал для конкретной функции.\n"
+                "`!setlog-old list` — просмотреть текущие настройки каналов.\n"
+                "`!setlog-old clear` — очистить все настройки каналов.\n"
+                "`!setlog-old #канал clear` — очистить настройки для конкретного канала."
+            ),
+            color=discord.Color.blue()
+        )
+        add_timestamp(embed)
+        await ctx.send(embed=embed, delete_after=30)
+        return
+
+    if args[0].lower() == "list":
+        if guild_id not in log_channels or not log_channels[guild_id]:
+            embed = discord.Embed(
+                title="📋 Список каналов логов",
+                description="Каналы для логов не настроены.",
+                color=discord.Color.blue()
+            )
+        else:
+            description = ""
+            for func, channel_id in log_channels[guild_id].items():
+                channel = ctx.guild.get_channel(channel_id)
+                if channel:
+                    description += f"**{func}:** {channel.mention}\n"
+                else:
+                    description += f"**{func}:** Канал не найден (ID: {channel_id})\n"
+
+            embed = discord.Embed(
+                title="📋 Список каналов логов",
+                description=description,
+                color=discord.Color.blue()
+            )
+        add_timestamp(embed)
+        await ctx.send(embed=embed, delete_after=30)
+        return
+
+    if args[0].lower() == "clear":
+        if guild_id in log_channels:
+            log_channels.pop(guild_id)
+            embed = discord.Embed(
+                title="✅ Настройки логов очищены!",
+                description="Все настройки каналов логов были удалены.",
+                color=discord.Color.green()
+            )
+        else:
+            embed = discord.Embed(
+                title="ℹ️ Нет настроек для очистки",
+                description="Настройки каналов логов отсутствуют.",
+                color=discord.Color.blue()
+            )
+        add_timestamp(embed)
+        await ctx.send(embed=embed, delete_after=10)
+        return
+
+    try:
+        channel = await commands.TextChannelConverter().convert(ctx, args[0])
+    except commands.ChannelNotFound:
+        embed = discord.Embed(
+            title="❌ Ошибка!",
+            description=f"Канал `{args[0]}` не найден.",
+            color=discord.Color.red()
+        )
+        add_timestamp(embed)
+        await ctx.send(embed=embed, delete_after=10)
+        return
+
+    if len(args) > 1 and args[1].lower() == "clear":
+        if guild_id in log_channels:
+            log_channels[guild_id] = {
+                func: channel_id
+                for func, channel_id in log_channels[guild_id].items()
+                if channel_id != channel.id
+            }
+
+            if not log_channels[guild_id]:
+                log_channels.pop(guild_id)
+
+            embed = discord.Embed(
+                title="✅ Настройки канала очищены!",
+                description=f"Все настройки для канала {channel.mention} были удалены.",
+                color=discord.Color.green()
+            )
+        else:
+            embed = discord.Embed(
+                title="ℹ️ Нет настроек для очистки",
+                description=f"Настройки для канала {channel.mention} отсутствуют.",
+                color=discord.Color.blue()
+            )
+        add_timestamp(embed)
+        await ctx.send(embed=embed, delete_after=10)
+        return
+
+    feature = args[1] if len(args) > 1 else "all"
+
+    if feature != "all" and feature not in enabled_features:
+        embed = discord.Embed(
+            title="❌ Ошибка!",
+            description=f"Функция `{feature}` не найдена.\n"
+                        f"Доступные функции: {', '.join(enabled_features.keys())}",
+            color=discord.Color.red()
+        )
+        add_timestamp(embed)
+        await ctx.send(embed=embed, delete_after=10)
+        return
+
+    if guild_id not in log_channels:
+        log_channels[guild_id] = {}
+
+    if feature == "all":
+        for func in enabled_features:
+            log_channels[guild_id][func] = channel.id
+        description = f"Теперь все уведомления будут отправляться в {channel.mention}."
+    else:
+        log_channels[guild_id][feature] = channel.id
+        description = f"Теперь уведомления для функции `{feature}` будут отправляться в {channel.mention}."
+
+    embed = discord.Embed(
+        title="✅ Канал логов настроен!",
+        description=description,
+        color=discord.Color.green()
+    )
+    await ctx.send(embed=embed, delete_after=10)
+
 
 @KaradevFaceKid.command(name="toggle")
 @commands.has_permissions(administrator=True)
@@ -582,7 +716,7 @@ class LogButtons(View):
         modal = ClearLogsModal()
         await interaction.response.send_modal(modal)
 
-@KaradevFaceKid.command(name="setlog")
+@KaradevFaceKid.command(name="setlog-new")
 @commands.has_permissions(administrator=True)
 async def setlog(ctx):
     view = LogButtons(ctx.guild)
