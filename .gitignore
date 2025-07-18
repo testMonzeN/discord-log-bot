@@ -1,0 +1,8 @@
+__pycache__/
+bot_settings.json
+analytics.json
+bot/__pycache__/
+bot/analytics/__pycache__/
+bot/commands/__pycache__/
+bot/events/__pycache__/
+bot/utils/__pycache__/
